@@ -1,28 +1,16 @@
-'use server'
-
 import { callGemini } from '@/ai/genkit'
-import { z } from 'zod'
 
-const GanttActivityInputSchema = z.object({
-  id: z.string(),
-  risk: z.string(),
-  measure: z.string(),
-  riskLevel: z.string(),
-})
-
-const GanttActivityOutputSchema = z.object({
-  id: z.string(),
-  priority: z.enum(['Crítica', 'Alta', 'Media', 'Baja']),
-  responsible: z.string(),
-  startDate: z.string(),
-  endDate: z.string(),
-  status: z.enum(['Pendiente', 'En progreso', 'Completado']),
-})
-
-export type CreateGanttPlanOutput = z.infer<typeof GanttActivityOutputSchema>[]
+export type CreateGanttPlanOutput = Array<{
+  id: string
+  priority: 'Crítica' | 'Alta' | 'Media' | 'Baja'
+  responsible: string
+  startDate: string
+  endDate: string
+  status: 'Pendiente' | 'En progreso' | 'Completado'
+}>
 
 export async function createGanttPlan(
-  input: z.infer<typeof GanttActivityInputSchema>[]
+  input: Array<{ id: string; risk: string; measure: string; riskLevel: string }>
 ): Promise<CreateGanttPlanOutput> {
   const currentDate = new Date().toISOString().split('T')[0]
 
@@ -38,10 +26,6 @@ For each measure:
 2. priority: Intolerable->Crítica, Importante/Alto->Alta, Moderado/Medio->Media, Tolerable/Bajo->Baja
 3. responsible: Assign role (e.g., "Supervisor", "Comité Paritario", "Jefe de Área")
 4. startDate & endDate: Format YYYY-MM-DD, today is ${currentDate}
-   - Crítica: 1-3 weeks
-   - Alta: 2-4 weeks
-   - Media: 1-2 months
-   - Baja: 2-3 months
 5. status: All start as "Pendiente"
 
 Activities:

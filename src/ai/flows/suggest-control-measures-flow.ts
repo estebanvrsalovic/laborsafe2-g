@@ -1,12 +1,4 @@
-'use server'
-
 import { callGemini } from '@/ai/genkit'
-import { z } from 'zod'
-
-const ControlMeasureSchema = z.object({
-  classification: z.enum(['Eliminación', 'Sustitución', 'Control de Ingeniería', 'Control Administrativo', 'EPP']),
-  description: z.string(),
-})
 
 export type SuggestControlMeasuresInput = {
   process: string
@@ -29,7 +21,10 @@ export type SuggestControlMeasuresInput = {
   requiredTraining?: string
 }
 
-export type SuggestControlMeasuresOutput = z.infer<typeof ControlMeasureSchema>[]
+export type SuggestControlMeasuresOutput = Array<{
+  classification: 'Eliminación' | 'Sustitución' | 'Control de Ingeniería' | 'Control Administrativo' | 'EPP'
+  description: string
+}>
 
 export async function suggestControlMeasures(
   input: SuggestControlMeasuresInput,

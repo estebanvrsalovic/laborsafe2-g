@@ -1,18 +1,4 @@
-'use server'
-
 import { callGemini } from '@/ai/genkit'
-import { z } from 'zod'
-
-const GeneratedTaskWithRisksSchema = z.object({
-  riskType: z.enum(['fisico', 'quimico', 'biologico', 'ergonomico', 'psicosocial', 'mecanico']),
-  category: z.enum(['Gente', 'Equipos', 'Materiales', 'Ambiente', 'Procesos']),
-  hazard: z.string(),
-  riskFactor: z.string(),
-  riskEvent: z.string(),
-  consequences: z.string(),
-  frequency: z.enum(['muy_alta', 'alta', 'media', 'baja']),
-  severity: z.enum(['critico', 'alto', 'medio', 'bajo']),
-})
 
 export type CreateTasksAndRisksInput = {
   process: string
@@ -26,7 +12,16 @@ export type CreateTasksAndRisksInput = {
   observations?: string
 }
 
-export type CreateTasksAndRisksOutput = z.infer<typeof GeneratedTaskWithRisksSchema>[]
+export type CreateTasksAndRisksOutput = Array<{
+  riskType: 'fisico' | 'quimico' | 'biologico' | 'ergonomico' | 'psicosocial' | 'mecanico'
+  category: 'Gente' | 'Equipos' | 'Materiales' | 'Ambiente' | 'Procesos'
+  hazard: string
+  riskFactor: string
+  riskEvent: string
+  consequences: string
+  frequency: 'muy_alta' | 'alta' | 'media' | 'baja'
+  severity: 'critico' | 'alto' | 'medio' | 'bajo'
+}>
 
 export async function createTasksAndRisks(input: CreateTasksAndRisksInput): Promise<CreateTasksAndRisksOutput> {
   const prompt = `Eres un experto en prevención de riesgos laborales en Chile (Ley 16.744, DS 40, DS 594).
@@ -62,16 +57,14 @@ Identifica 5-8 peligros y riesgos específicos para esta tarea. Responde SOLO co
     console.warn('AI risk identification failed:', error.message)
   }
 
-  return [
-    {
-      riskType: 'mecanico',
-      category: 'Equipos',
-      hazard: `Riesgos mecánicos en ${input.process}`,
-      riskFactor: `Exposición a peligros durante ${input.taskDescription}`,
-      riskEvent: 'Lesiones por contacto con elementos peligrosos',
-      consequences: 'Lesiones leves a graves',
-      frequency: 'media',
-      severity: 'medio',
-    },
-  ]
+  return [{
+    riskType: 'mecanico',
+    category: 'Equipos',
+    hazard: `Riesgos mecánicos en ${input.process}`,
+    riskFactor: `Exposición a peligros durante ${input.taskDescription}`,
+    riskEvent: 'Lesiones por contacto con elementos peligrosos',
+    consequences: 'Lesiones leves a graves',
+    frequency: 'media',
+    severity: 'medio',
+  }]
 }

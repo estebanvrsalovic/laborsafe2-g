@@ -1,21 +1,4 @@
-'use server'
-
 import { callGemini } from '@/ai/genkit'
-import { z } from 'zod'
-
-const EvaluateRisksOutputSchema = z.object({
-  security: z.object({
-    probability: z.enum(['Baja', 'Media', 'Alta']),
-    consequence: z.enum(['Leve', 'Grave', 'Muy Grave']),
-  }),
-  hygienic: z.object({ riskLevel: z.enum(['Bajo', 'Medio', 'Alto', 'No aplica']) }),
-  psychosocial: z.object({
-    riskLevel: z.enum(['Bajo', 'Medio', 'Alto', 'No aplica']),
-    dimension: z.string(),
-    justification: z.string(),
-  }),
-  musculoskeletal: z.object({ riskLevel: z.enum(['Bajo', 'Medio', 'Alto', 'No aplica']) }),
-})
 
 export type EvaluateRisksInput = {
   process: string
@@ -26,7 +9,12 @@ export type EvaluateRisksInput = {
   sexGenderIdentities: string
 }
 
-export type EvaluateRisksOutput = z.infer<typeof EvaluateRisksOutputSchema>
+export type EvaluateRisksOutput = {
+  security: { probability: 'Baja' | 'Media' | 'Alta'; consequence: 'Leve' | 'Grave' | 'Muy Grave' }
+  hygienic: { riskLevel: 'Bajo' | 'Medio' | 'Alto' | 'No aplica' }
+  psychosocial: { riskLevel: 'Bajo' | 'Medio' | 'Alto' | 'No aplica'; dimension: string; justification: string }
+  musculoskeletal: { riskLevel: 'Bajo' | 'Medio' | 'Alto' | 'No aplica' }
+}
 
 export async function evaluateRisks(input: EvaluateRisksInput): Promise<EvaluateRisksOutput> {
   const prompt = `Eres experto en evaluación de riesgos laborales en Chile (ISP, Res. Ex. E668/25).
@@ -57,11 +45,11 @@ Evalúa los riesgos. Responde SOLO con JSON:
   }
 
   const hazardLower = input.hazard.toLowerCase()
-  const probability = hazardLower.includes('altura') || hazardLower.includes('eléctric') ? 'Media' : 'Baja'
-  const consequence = hazardLower.includes('mort') || hazardLower.includes('grave') ? 'Grave' : 'Leve'
-
   return {
-    security: { probability, consequence },
+    security: {
+      probability: hazardLower.includes('altura') || hazardLower.includes('eléctric') ? 'Media' : 'Baja',
+      consequence: hazardLower.includes('mort') || hazardLower.includes('grave') ? 'Grave' : 'Leve',
+    },
     hygienic: { riskLevel: 'No aplica' },
     psychosocial: { riskLevel: 'No aplica', dimension: 'No aplica', justification: 'No aplica' },
     musculoskeletal: { riskLevel: 'No aplica' },
