@@ -191,3 +191,28 @@ export interface PurchaseLine {
   notes?: string;
   userId?: string;
 }
+
+export type DS44Answer = 'Sí' | 'No' | 'N/A'
+
+export interface DS44Identification {
+  empresa: string
+  rut: string
+  actividad: string
+  direccion: string
+  evaluador: string
+  cargo: string
+  fecha: string
+  organismo: string
+}
+
+export interface DS44Checklist {
+  id: string
+  userId: string
+  companyId: string
+  createdAt: string
+  updatedAt: string
+  identification: DS44Identification
+  answers: Record<string, DS44Answer>
+  comments: Record<string, string>
+  evidence: Record<string, string>
+}
