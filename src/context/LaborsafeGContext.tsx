@@ -18,6 +18,7 @@ import { suggestControlMeasures } from '@/ai/flows/suggest-control-measures-flow
 import { evaluateRisks } from '@/ai/flows/evaluate-risks-flow'
 import { createGanttPlan } from '@/ai/flows/create-gantt-plan-flow'
 import { useToast } from '@/hooks/use-toast'
+import { ToastAction } from '@/components/ui/toast'
 import { calculateRiskLevel, getVep } from '@/lib/constants'
 import { addDays, format, addWeeks, addMonths } from 'date-fns'
 
@@ -147,9 +148,13 @@ export function LaborsafeGProvider({ children }: { children: ReactNode }) {
   const riskAnalysesRef = useRef<RiskAnalysis[]>([])
   const prevRiskAnalysesRef = useRef<RiskAnalysis[]>([])
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const companiesRef = useRef<Company[]>([])
+  const processDocumentsRef = useRef<ProcessDocument[]>([])
 
   useEffect(() => { userRef.current = user }, [user])
   useEffect(() => { activeCompanyIdRef.current = activeCompanyId }, [activeCompanyId])
+  useEffect(() => { companiesRef.current = companies }, [companies])
+  useEffect(() => { processDocumentsRef.current = processDocuments }, [processDocuments])
 
   // ─── Load data from Firestore ────────────────────────────────────────────
 
@@ -159,35 +164,53 @@ export function LaborsafeGProvider({ children }: { children: ReactNode }) {
     const loadData = async () => {
       try {
         const uid = user.uid
-        const [companiesSnap, processDocsSnap, riskSnap, ganttSnap, matricesSnap, acqSnap] = await Promise.all([
+        const results = await Promise.allSettled([
           getDocs(query(collection(db, 'companies'), where('userId', '==', uid))),
           getDocs(query(collection(db, 'processDocuments'), where('userId', '==', uid))),
           getDocs(query(collection(db, 'riskAnalyses'), where('userId', '==', uid))),
           getDocs(query(collection(db, 'ganttActivities'), where('userId', '==', uid))),
           getDocs(query(collection(db, 'savedMatrices'), where('userId', '==', uid))),
           getDocs(query(collection(db, 'acquisitions'), where('userId', '==', uid))),
+          getDoc(doc(db, 'userSettings', uid)),
         ])
 
-        setCompanies(companiesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Company)))
-        setProcessDocuments(processDocsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ProcessDocument)))
+        const [companiesRes, processDocsRes, riskRes, ganttRes, matricesRes, acqRes, settingsRes] = results
 
-        const analyses = riskSnap.docs.map(d => ({ id: d.id, ...d.data() } as RiskAnalysis))
-        const sorted = sortRiskAnalyses(migrateRiskAnalyses(analyses))
-        riskAnalysesRef.current = sorted
-        prevRiskAnalysesRef.current = sorted
-        setInternalRiskAnalyses(sorted)
+        if (companiesRes.status === 'fulfilled')
+          setCompanies(companiesRes.value.docs.map(d => ({ id: d.id, ...d.data() } as Company)))
+        else console.error('companies load failed:', companiesRes.reason)
 
-        setGanttActivitiesState(ganttSnap.docs.map(d => ({ id: d.id, ...d.data() } as GanttActivity)))
-        setSavedMatrices(matricesSnap.docs.map(d => ({ id: d.id, ...d.data() } as SavedMatrix)))
-        setAcquisitionsState(acqSnap.docs.map(d => ({ id: d.id, ...d.data() } as PurchaseLine)))
+        if (processDocsRes.status === 'fulfilled')
+          setProcessDocuments(processDocsRes.value.docs.map(d => ({ id: d.id, ...d.data() } as ProcessDocument)))
+        else console.error('processDocuments load failed:', processDocsRes.reason)
 
-        const settingsRef = doc(db, 'userSettings', uid)
-        const settingsSnap = await getDoc(settingsRef)
-        if (settingsSnap.exists()) {
-          const s = settingsSnap.data()
+        if (riskRes.status === 'fulfilled') {
+          const analyses = riskRes.value.docs.map(d => ({ id: d.id, ...d.data() } as RiskAnalysis))
+          const sorted = sortRiskAnalyses(migrateRiskAnalyses(analyses))
+          riskAnalysesRef.current = sorted
+          prevRiskAnalysesRef.current = sorted
+          setInternalRiskAnalyses(sorted)
+        } else console.error('riskAnalyses load failed:', riskRes.reason)
+
+        if (ganttRes.status === 'fulfilled')
+          setGanttActivitiesState(ganttRes.value.docs.map(d => ({ id: d.id, ...d.data() } as GanttActivity)))
+        else console.error('ganttActivities load failed:', ganttRes.reason)
+
+        if (matricesRes.status === 'fulfilled')
+          setSavedMatrices(matricesRes.value.docs.map(d => ({ id: d.id, ...d.data() } as SavedMatrix)))
+        else console.error('savedMatrices load failed:', matricesRes.reason)
+
+        if (acqRes.status === 'fulfilled')
+          setAcquisitionsState(acqRes.value.docs.map(d => ({ id: d.id, ...d.data() } as PurchaseLine)))
+        else console.error('acquisitions load failed:', acqRes.reason)
+
+        if (settingsRes.status === 'fulfilled' && settingsRes.value.exists()) {
+          const s = settingsRes.value.data()
           if (s.activeCompanyId) setActiveCompanyIdState(s.activeCompanyId)
           if (s.currentRole) setCurrentUserRoleState(s.currentRole)
           if (s.layoutPlan) setLayoutPlanState(s.layoutPlan)
+        } else if (settingsRes.status === 'rejected') {
+          console.error('userSettings load failed:', settingsRes.reason)
         }
       } catch (error) {
         console.error('Failed to load data from Firestore:', error)
@@ -317,12 +340,38 @@ export function LaborsafeGProvider({ children }: { children: ReactNode }) {
   const deleteCompany = useCallback(async (companyId: string) => {
     const u = userRef.current
     if (!u) return
+
+    const companyToDelete = companiesRef.current.find(c => c.id === companyId)
+    const relatedDocs = processDocumentsRef.current.filter(d => d.companyId === companyId)
+    const wasActive = activeCompanyIdRef.current === companyId
+
+    if (!companyToDelete) return
+
     setCompanies(prev => prev.filter(c => c.id !== companyId))
     setProcessDocuments(prev => prev.filter(d => d.companyId !== companyId))
-    if (activeCompanyId === companyId) setActiveCompanyId(null)
+    if (wasActive) setActiveCompanyId(null)
     await deleteDoc(doc(db, 'companies', companyId))
-    toast({ title: 'Empresa eliminada', variant: 'destructive' })
-  }, [activeCompanyId, setActiveCompanyId, toast])
+
+    toast({
+      title: 'Empresa eliminada',
+      description: `"${companyToDelete.name}" ha sido eliminada.`,
+      variant: 'destructive',
+      action: (
+        <ToastAction altText="Deshacer" onClick={async () => {
+          const currentU = userRef.current
+          setCompanies(prev => [...prev, companyToDelete])
+          setProcessDocuments(prev => [...prev, ...relatedDocs])
+          if (wasActive) setActiveCompanyId(companyToDelete.id)
+          if (currentU) {
+            await setDoc(doc(db, 'companies', companyToDelete.id), { ...companyToDelete, userId: currentU.uid })
+          }
+          toast({ title: 'Empresa restaurada', description: `"${companyToDelete.name}" ha sido recuperada.` })
+        }}>
+          Deshacer
+        </ToastAction>
+      ),
+    })
+  }, [setActiveCompanyId, toast])
 
   // ─── Process document CRUD ────────────────────────────────────────────────
 
