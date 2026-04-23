@@ -16,8 +16,9 @@ export default function ResultsTab({ sections, answers, totalQuestions }: Result
   const no = allAnswers.filter(a => a === 'No').length
   const na = allAnswers.filter(a => a === 'N/A').length
   const answered = allAnswers.length
+  const applicable = allAnswers.filter(a => a === 'Sí' || a === 'No').length
   const unanswered = totalQuestions - answered
-  const pct = answered > 0 ? Math.round((yes / answered) * 100) : 0
+  const pct = applicable > 0 ? Math.round((yes / applicable) * 100) : 0
 
   const sectionData = sections.map(section => {
     const sectionAnswers = section.questions.map(q => answers[q.id]).filter(Boolean)
@@ -25,6 +26,7 @@ export default function ResultsTab({ sections, answers, totalQuestions }: Result
     const sNo = sectionAnswers.filter(a => a === 'No').length
     const sNa = sectionAnswers.filter(a => a === 'N/A').length
     const sAnswered = sectionAnswers.length
+    const sApplicable = sectionAnswers.filter(a => a === 'Sí' || a === 'No').length
     return {
       name: section.letter,
       fullName: section.title,
@@ -33,7 +35,7 @@ export default function ResultsTab({ sections, answers, totalQuestions }: Result
       'N/A': sNa,
       total: section.questions.length,
       answered: sAnswered,
-      pct: sAnswered > 0 ? Math.round((sYes / sAnswered) * 100) : 0,
+      pct: sApplicable > 0 ? Math.round((sYes / sApplicable) * 100) : 0,
     }
   })
 

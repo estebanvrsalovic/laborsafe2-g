@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { DS44Question } from '@/lib/ds44-data'
 import { DS44Answer } from '@/lib/types'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
+import { getTipificadorForQuestion } from '@/lib/ds44-tipificador-map'
+import { calcMulta, CompanySize, Severity, clpLabel } from '@/lib/tipificador-utils'
 
 interface QuestionCardProps {
   question: DS44Question
@@ -13,6 +15,9 @@ interface QuestionCardProps {
   onAnswer: (id: string, value: DS44Answer) => void
   onComment: (id: string, value: string) => void
   onEvidence: (id: string, value: string) => void
+  companySize?: CompanySize
+  severity?: Severity
+  utmValue?: number
 }
 
 const ANSWER_STYLES: Record<DS44Answer, string> = {
@@ -35,10 +40,15 @@ export default function QuestionCard({
   onAnswer,
   onComment,
   onEvidence,
+  companySize = 'pequeña',
+  severity = 'grave',
+  utmValue = 0,
 }: QuestionCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   const borderClass = answer ? CARD_BORDER[answer] : 'border-l-[#374151]'
+  const tipificadorLinks = getTipificadorForQuestion(question.id)
+  const showInfracciones = answer === 'No' && tipificadorLinks.length > 0
 
   return (
     <div className={`bg-[#111827] border border-[#1f2937] border-l-4 ${borderClass} rounded-lg p-4 transition-all`}>
@@ -76,6 +86,40 @@ export default function QuestionCard({
           </button>
         ))}
       </div>
+
+      {/* Infracciones tipificadas — solo cuando respuesta es "No" */}
+      {showInfracciones && (
+        <div className="mb-3 bg-red-950/20 border border-red-800/40 rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-1.5 mb-1">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+            <span className="text-[11px] font-semibold text-red-400 uppercase tracking-wide">
+              Posibles infracciones tipificadas
+            </span>
+          </div>
+          {tipificadorLinks.map(r => {
+            const m = calcMulta(r, companySize, severity)
+            const clp = m.unit === 'UTM' && typeof m.value === 'number' && utmValue > 0
+              ? clpLabel(m.value, utmValue)
+              : ''
+            return (
+              <div key={String(r.codigo)} className="flex items-start gap-2 bg-[#0a0a0a]/50 rounded p-2">
+                <span className="shrink-0 text-[10px] font-bold bg-red-900/60 text-red-300 border border-red-700/50 px-1.5 py-0.5 rounded font-mono">
+                  {r.codigo}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-gray-300 leading-snug">{r.enunciado}</p>
+                  {m.value !== 'N/D' && (
+                    <p className="text-[11px] text-red-300 font-semibold mt-0.5">
+                      Multa estimada: {m.value} {m.unit}
+                      {clp && <span className="text-gray-400 font-normal ml-1">({clp})</span>}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       <button
         onClick={() => setExpanded(v => !v)}

@@ -12,7 +12,8 @@ import ResultsTab from '@/components/lista-verificacion/ResultsTab'
 import ActionPlanTab from '@/components/lista-verificacion/ActionPlanTab'
 import { DS44_SECTIONS, ALL_QUESTIONS } from '@/lib/ds44-data'
 import { DS44Answer, DS44Identification, DS44Checklist } from '@/lib/types'
-import { AlertTriangle, Download, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Download, RefreshCw, Trash2 } from 'lucide-react'
+import { CompanySize, Severity } from '@/lib/tipificador-utils'
 
 const EMPTY_IDENTIFICATION: DS44Identification = {
   empresa: '',
@@ -39,6 +40,10 @@ export default function ListaVerificacionPage() {
   const [evidence, setEvidence] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [companySize, setCompanySize] = useState<CompanySize>('pequeña')
+  const [severity, setSeverity] = useState<Severity>('grave')
+  const [utmInput, setUtmInput] = useState('69542')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const docId = activeCompany ? `${activeCompany.id}_${user?.uid}` : null
@@ -116,12 +121,26 @@ export default function ListaVerificacionPage() {
     })
   }, [answers, comments, evidence, scheduleSave])
 
+  const handleClear = useCallback(() => {
+    setAnswers({})
+    setComments({})
+    setEvidence({})
+    setConfirmClear(false)
+    save(docId, user?.uid, identification, {}, {}, {})
+  }, [docId, user?.uid, identification, save])
+
+  const utmValue = useMemo(() => {
+    const v = parseFloat(utmInput.replace(/[^0-9.]/g, ''))
+    return isNaN(v) ? 0 : v
+  }, [utmInput])
+
   const { globalPct, answeredCount } = useMemo(() => {
     const vals = Object.values(answers)
     const yes = vals.filter(a => a === 'Sí').length
+    const applicable = vals.filter(a => a === 'Sí' || a === 'No').length
     return {
       answeredCount: vals.length,
-      globalPct: vals.length > 0 ? Math.round((yes / vals.length) * 100) : 0,
+      globalPct: applicable > 0 ? Math.round((yes / applicable) * 100) : 0,
     }
   }, [answers])
 
@@ -257,7 +276,69 @@ export default function ListaVerificacionPage() {
       )}
 
       {activeTab === 'evaluacion' && (
-        <div className="flex gap-6">
+        <div className="space-y-4">
+          {/* Configuración para cálculo de multas */}
+          <div className="flex flex-wrap items-center gap-3 bg-[#111827] border border-[#1f2937] rounded-lg px-4 py-3">
+            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide whitespace-nowrap">Multas estimadas:</span>
+            <select
+              value={companySize}
+              onChange={e => setCompanySize(e.target.value as CompanySize)}
+              className="text-xs bg-[#0a0a0a] border border-[#374151] rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-teal-500"
+            >
+              <option value="micro">Micro (1–9)</option>
+              <option value="pequeña">Pequeña (10–49)</option>
+              <option value="mediana">Mediana (50–199)</option>
+              <option value="grande">Grande (200+)</option>
+            </select>
+            <select
+              value={severity}
+              onChange={e => setSeverity(e.target.value as Severity)}
+              className="text-xs bg-[#0a0a0a] border border-[#374151] rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-teal-500"
+            >
+              <option value="leve">Leve</option>
+              <option value="grave">Grave</option>
+              <option value="gravisima">Gravísima</option>
+            </select>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 whitespace-nowrap">UTM (CLP)</span>
+              <input
+                type="text"
+                value={utmInput}
+                onChange={e => setUtmInput(e.target.value)}
+                className="w-24 text-xs bg-[#0a0a0a] border border-[#374151] rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-teal-500"
+              />
+            </div>
+            <span className="text-xs text-gray-600 italic">Se muestra cuando la respuesta es &quot;No&quot;</span>
+          </div>
+
+          <div className="flex justify-end">
+            {confirmClear ? (
+              <div className="flex items-center gap-2 bg-red-900/20 border border-red-700/40 rounded px-3 py-2">
+                <span className="text-sm text-red-300">¿Borrar todas las respuestas?</span>
+                <button
+                  onClick={handleClear}
+                  className="px-3 py-1 text-sm bg-red-700 hover:bg-red-600 text-white rounded transition-colors"
+                >
+                  Confirmar
+                </button>
+                <button
+                  onClick={() => setConfirmClear(false)}
+                  className="px-3 py-1 text-sm border border-[#374151] hover:border-gray-500 text-gray-400 rounded transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmClear(true)}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-[#374151] hover:border-red-700/60 text-gray-500 hover:text-red-400 rounded transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Limpiar evaluación
+              </button>
+            )}
+          </div>
+          <div className="flex gap-6">
           <SectionNav
             sections={DS44_SECTIONS}
             answers={answers}
@@ -290,6 +371,9 @@ export default function ListaVerificacionPage() {
                       onAnswer={handleAnswer}
                       onComment={handleComment}
                       onEvidence={handleEvidence}
+                      companySize={companySize}
+                      severity={severity}
+                      utmValue={utmValue}
                     />
                   ))}
                 </div>
@@ -308,6 +392,7 @@ export default function ListaVerificacionPage() {
                 </div>
               </div>
             ))}
+          </div>
           </div>
         </div>
       )}

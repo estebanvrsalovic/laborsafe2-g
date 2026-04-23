@@ -11,4 +11,5 @@ export const ROUTES = {
   REPORTS: '/reports',
   HISTORY: '/history',
   LISTA_VERIFICACION: '/lista-verificacion',
+  TIPIFICADOR: '/tipificador',
 } as const;

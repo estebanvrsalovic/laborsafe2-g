@@ -48,8 +48,9 @@ export default function SectionNav({
             const yes = sectionAnswers.filter(a => a === 'Sí').length
             const no = sectionAnswers.filter(a => a === 'No').length
             const answered = sectionAnswers.length
+            const applicable = sectionAnswers.filter(a => a === 'Sí' || a === 'No').length
             const total = section.questions.length
-            const pct = answered > 0 ? Math.round((yes / answered) * 100) : null
+            const pct = applicable > 0 ? Math.round((yes / applicable) * 100) : null
 
             return (
               <button

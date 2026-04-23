@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Building2, FileText, BarChart3, ClipboardList, Package, LogOut, CheckSquare } from 'lucide-react';
+import { ShieldCheck, Building2, FileText, BarChart3, ClipboardList, Package, LogOut, CheckSquare, Scale } from 'lucide-react';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { ROUTES } from '@/lib/routes';
@@ -14,6 +14,7 @@ const features = [
   { icon: ClipboardList, title: 'Plan de Acción', description: 'Asignación y seguimiento de medidas', href: ROUTES.ACTION_PLAN, color: 'text-orange-400' },
   { icon: Package, title: 'Adquisiciones', description: 'Consolidar necesidades de compra', href: ROUTES.ADQUISICIONES, color: 'text-pink-400' },
   { icon: CheckSquare, title: 'Lista de Verificación DS N°44', description: 'Autoevaluación de cumplimiento en SST', href: ROUTES.LISTA_VERIFICACION, color: 'text-teal-400' },
+  { icon: Scale, title: 'Tipificador DT', description: 'Calculadora de multas según Código del Trabajo', href: ROUTES.TIPIFICADOR, color: 'text-red-400' },
 ];
 
 export default function DashboardPage() {
