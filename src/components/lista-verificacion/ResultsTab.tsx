@@ -1,16 +1,28 @@
 'use client'
 
+import { useMemo } from 'react'
 import { DS44Section } from '@/lib/ds44-data'
 import { DS44Answer } from '@/lib/types'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { getTipificadorForQuestion } from '@/lib/ds44-tipificador-map'
+import { calcMulta, clpLabel, CompanySize, Severity } from '@/lib/tipificador-utils'
 
 interface ResultsTabProps {
   sections: DS44Section[]
   answers: Record<string, DS44Answer>
   totalQuestions: number
+  companySize?: CompanySize
+  severity?: Severity
+  utmValue?: number
 }
 
-export default function ResultsTab({ sections, answers, totalQuestions }: ResultsTabProps) {
+export default function ResultsTab({
+  sections,
+  answers,
+  totalQuestions,
+  companySize = 'pequeña',
+  severity = 'grave',
+  utmValue = 0,
+}: ResultsTabProps) {
   const allAnswers = Object.values(answers)
   const yes = allAnswers.filter(a => a === 'Sí').length
   const no = allAnswers.filter(a => a === 'No').length
@@ -19,6 +31,26 @@ export default function ResultsTab({ sections, answers, totalQuestions }: Result
   const applicable = allAnswers.filter(a => a === 'Sí' || a === 'No').length
   const unanswered = totalQuestions - answered
   const pct = applicable > 0 ? Math.round((yes / applicable) * 100) : 0
+
+  const finesByQuestion = useMemo(() => {
+    const result: Record<string, number> = {}
+    sections.flatMap(s => s.questions).forEach(q => {
+      if (answers[q.id] === 'No') {
+        const links = getTipificadorForQuestion(q.id)
+        const totalUtm = links.reduce((acc, r) => {
+          const m = calcMulta(r, companySize, severity)
+          return m.unit === 'UTM' && typeof m.value === 'number' ? acc + m.value : acc
+        }, 0)
+        if (totalUtm > 0) result[q.id] = totalUtm
+      }
+    })
+    return result
+  }, [sections, answers, companySize, severity])
+
+  const grandTotalUtm = useMemo(
+    () => Object.values(finesByQuestion).reduce((acc, v) => acc + v, 0),
+    [finesByQuestion]
+  )
 
   const sectionData = sections.map(section => {
     const sectionAnswers = section.questions.map(q => answers[q.id]).filter(Boolean)
@@ -73,6 +105,23 @@ export default function ResultsTab({ sections, answers, totalQuestions }: Result
           />
         </div>
       </div>
+
+      {grandTotalUtm > 0 && (
+        <div className="bg-red-950/20 border border-red-700/40 rounded-lg p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-wider text-red-400/70 mb-1">Exposición económica estimada</p>
+            <p className="text-xs text-gray-400">
+              Suma de multas por los {no} ítems no conformes con infracción tipificada
+            </p>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p className="text-2xl font-bold text-red-300">{grandTotalUtm} UTM</p>
+            {utmValue > 0 && (
+              <p className="text-sm text-gray-400 mt-0.5">{clpLabel(grandTotalUtm, utmValue)}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="bg-[#111827] border border-[#1f2937] rounded-lg p-4">
         <h3 className="text-white font-semibold mb-4">Cumplimiento por sección</h3>
@@ -130,18 +179,44 @@ export default function ResultsTab({ sections, answers, totalQuestions }: Result
       {no > 0 && (
         <div className="bg-red-900/10 border border-red-700/30 rounded-lg p-4">
           <h3 className="text-red-400 font-semibold mb-3">Ítems no conformes ({no})</h3>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {sections.flatMap(s =>
               s.questions
                 .filter(q => answers[q.id] === 'No')
-                .map(q => (
-                  <div key={q.id} className="flex items-start gap-2 text-sm">
-                    <span className="font-mono text-xs bg-red-900/30 text-red-400 px-1.5 py-0.5 rounded flex-shrink-0">{q.id}</span>
-                    <span className="text-gray-300 text-xs">{q.question.split('\n')[0]}</span>
-                  </div>
-                ))
+                .map(q => {
+                  const fine = finesByQuestion[q.id]
+                  return (
+                    <div key={q.id} className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <span className="font-mono text-xs bg-red-900/30 text-red-400 px-1.5 py-0.5 rounded flex-shrink-0">{q.id}</span>
+                        <span className="text-gray-300 text-xs leading-relaxed">{q.question.split('\n')[0]}</span>
+                      </div>
+                      {fine && (
+                        <div className="flex-shrink-0 text-right">
+                          <span className="text-[11px] font-semibold text-red-300 whitespace-nowrap">
+                            {fine} UTM
+                          </span>
+                          {utmValue > 0 && (
+                            <p className="text-[10px] text-gray-500 whitespace-nowrap">{clpLabel(fine, utmValue)}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
             )}
           </div>
+          {grandTotalUtm > 0 && (
+            <div className="mt-4 pt-3 border-t border-red-800/40 flex items-center justify-between">
+              <span className="text-xs font-semibold text-red-300 uppercase tracking-wide">Total multas estimadas</span>
+              <div className="text-right">
+                <span className="text-sm font-bold text-red-200">{grandTotalUtm} UTM</span>
+                {utmValue > 0 && (
+                  <p className="text-[11px] text-gray-400">{clpLabel(grandTotalUtm, utmValue)}</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

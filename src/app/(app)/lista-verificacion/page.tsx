@@ -402,6 +402,9 @@ export default function ListaVerificacionPage() {
           sections={DS44_SECTIONS}
           answers={answers}
           totalQuestions={ALL_QUESTIONS.length}
+          companySize={companySize}
+          severity={severity}
+          utmValue={utmValue}
         />
       )}
 

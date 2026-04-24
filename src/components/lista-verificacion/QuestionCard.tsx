@@ -50,6 +50,11 @@ export default function QuestionCard({
   const tipificadorLinks = getTipificadorForQuestion(question.id)
   const showInfracciones = answer === 'No' && tipificadorLinks.length > 0
 
+  const multaTotal = tipificadorLinks.reduce((acc, r) => {
+    const m = calcMulta(r, companySize, severity)
+    return m.unit === 'UTM' && typeof m.value === 'number' ? acc + m.value : acc
+  }, 0)
+
   return (
     <div className={`bg-[#111827] border border-[#1f2937] border-l-4 ${borderClass} rounded-lg p-4 transition-all`}>
       <div className="flex items-start gap-3 mb-3">
@@ -118,6 +123,14 @@ export default function QuestionCard({
               </div>
             )
           })}
+          {multaTotal > 0 && (
+            <div className="border-t border-red-800/40 pt-2 flex items-center justify-between">
+              <span className="text-[11px] font-bold text-red-300 uppercase tracking-wide">Total esta pregunta</span>
+              <span className="text-[11px] font-bold text-red-200">
+                {multaTotal} UTM{utmValue > 0 ? ` · ${clpLabel(multaTotal, utmValue)}` : ''}
+              </span>
+            </div>
+          )}
         </div>
       )}
 

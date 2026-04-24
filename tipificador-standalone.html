@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tipificador DT — Calculadora de Multas</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --accent: #0ea5e9;
+    --accent-dark: #0284c7;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warn: #f59e0b;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: var(--shadow);
+  }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header p  { font-size: 12px; color: var(--muted); }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
+
+  /* Controls bar */
+  .controls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .controls input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .controls input[type="text"]:focus { border-color: var(--accent); }
+
+  select, .btn {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    background: var(--surface);
+    cursor: pointer;
+    outline: none;
+  }
+  select:focus { border-color: var(--accent); }
+
+  .btn { font-weight: 500; transition: background .15s, color .15s; }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-danger { background: #fee2e2; color: var(--danger); border-color: #fca5a5; }
+  .btn-danger:hover { background: #fecaca; }
+
+  /* Load section */
+  .load-section {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .load-section p { color: var(--muted); margin-bottom: 12px; }
+  .load-section input[type="file"] { display: none; }
+  .load-section label { cursor: pointer; }
+
+  /* Main layout */
+  .layout { display: grid; grid-template-columns: 2fr 3fr; gap: 16px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+  }
+  .card-body { overflow-y: auto; max-height: 65vh; }
+
+  /* Result list */
+  .result-item {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .1s;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .result-item:hover { background: #f0f9ff; }
+  .result-item.active { background: #e0f2fe; border-left: 3px solid var(--accent); }
+  .result-item.in-acta { background: #f0fdf4; }
+  .result-item.in-acta.active { background: #dcfce7; border-left: 3px solid var(--success); }
+
+  .codigo-badge {
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .enunciado { font-size: 13px; line-height: 1.4; }
+  .norma { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Detail panel */
+  .detail { padding: 16px; }
+  .detail-empty { display: flex; align-items: center; justify-content: center; height: 200px; color: var(--muted); }
+  .detail h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  .detail-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .detail-label { font-weight: 600; color: var(--muted); font-size: 12px; min-width: 110px; flex-shrink: 0; }
+  .detail-val { font-size: 13px; }
+
+  /* Multa box */
+  .multa-box {
+    margin-top: 16px;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .multa-box .title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .multa-value { font-size: 28px; font-weight: 800; color: var(--accent-dark); }
+  .multa-unit  { font-size: 14px; color: var(--muted); margin-left: 4px; }
+  .multa-clp   { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  /* Acta section */
+  .acta-section { margin-top: 16px; }
+  .acta-header  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .acta-header h3 { font-weight: 600; }
+
+  .acta-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 6px;
+    gap: 8px;
+    background: var(--surface);
+  }
+  .acta-item-left { display: flex; gap: 8px; align-items: center; flex: 1; min-width: 0; }
+  .acta-item-text { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acta-item select { padding: 4px 8px; font-size: 12px; }
+  .acta-item .multa-small { font-size: 13px; font-weight: 700; color: var(--accent-dark); white-space: nowrap; }
+  .acta-item .rm-btn { background: none; border: none; cursor: pointer; color: var(--danger); font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+  .acta-item .rm-btn:hover { background: #fee2e2; }
+
+  .totals-box {
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-top: 10px;
+  }
+  .totals-box .label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .totals-box .amount { font-size: 22px; font-weight: 800; color: #92400e; }
+  .totals-box .clp { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  .actions-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+  /* Severity selector per item */
+  .sev-leve      { color: var(--success); }
+  .sev-grave     { color: var(--warn); }
+  .sev-gravisima { color: var(--danger); }
+
+  .chip {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .chip-leve      { background: #dcfce7; color: #166534; }
+  .chip-grave     { background: #fef9c3; color: #92400e; }
+  .chip-gravisima { background: #fee2e2; color: #991b1b; }
+
+  .error-msg { background: #fee2e2; color: var(--danger); padding: 10px 14px; border-radius: var(--radius); font-size: 13px; }
+  .count-badge { background: var(--border); color: var(--muted); font-size: 12px; padding: 2px 8px; border-radius: 9999px; }
+  .empty { padding: 24px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Tipificador DT — Calculadora de Multas</h1>
+    <p>Buscador de infracciones y cálculo de multas según Código del Trabajo</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Load data -->
+  <div id="load-section" class="load-section">
+    <p>Cargue el archivo <strong>tipificador.json</strong> para comenzar</p>
+    <label class="btn btn-primary" for="file-input">Seleccionar tipificador.json</label>
+    <input type="file" id="file-input" accept=".json" />
+    <p style="margin-top:10px;font-size:12px;">O ingrese la URL del API:</p>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:6px;">
+      <input type="text" id="api-url-input" placeholder="https://tu-dominio.vercel.app/api/tipificador" style="width:360px;" />
+      <button class="btn btn-primary" onclick="loadFromUrl()">Cargar</button>
+    </div>
+    <div id="load-error" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls" id="controls" style="display:none;">
+    <input type="text" id="search-input" placeholder="Buscar por descripción, norma, código..." oninput="renderResults()" />
+    <button class="btn btn-ghost" onclick="document.getElementById('search-input').value='';renderResults()">✕ Limpiar</button>
+    <select id="company-size" onchange="refresh()">
+      <option value="micro">Micro (1–9)</option>
+      <option value="pequeña" selected>Pequeña (10–49)</option>
+      <option value="mediana">Mediana (50–199)</option>
+      <option value="grande">Grande (200+)</option>
+    </select>
+    <select id="severity" onchange="refresh()">
+      <option value="leve">Leve</option>
+      <option value="grave" selected>Grave</option>
+      <option value="gravisima">Gravísima</option>
+    </select>
+    <input type="text" id="utm-input" placeholder="Valor UTM (CLP)" value="69542" style="width:150px;" oninput="refresh()" />
+  </div>
+
+  <div class="layout" id="main-layout" style="display:none;">
+
+    <!-- Results list -->
+    <div class="card">
+      <div class="card-header">
+        <span>Resultados</span>
+        <span id="result-count" class="count-badge">0</span>
+      </div>
+      <div class="card-body" id="results-list"></div>
+    </div>
+
+    <!-- Detail + Acta -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Detail -->
+      <div class="card">
+        <div class="card-header">Detalle del registro</div>
+        <div class="card-body">
+          <div id="detail-panel" class="detail">
+            <div class="detail-empty">Seleccione un registro para ver el detalle</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Acta -->
+      <div class="card">
+        <div class="card-header">
+          <span>Acta de selección</span>
+          <span id="acta-count" class="count-badge">0</span>
+        </div>
+        <div class="card-body" style="max-height:none;">
+          <div id="acta-panel" style="padding:12px 16px;">
+            <div class="empty">No hay registros en el acta</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let allData = [];
+let selected = null;
+let acta = {};           // { codigo: Registro }
+let actaSeverity = {};   // { codigo: severity }
+
+// ─── Fine tables ──────────────────────────────────────────────────────────────
+const DEFAULT_TABLES = {
+  estandar_nat2_base: {
+    micro:    { leve:3,     grave:4,    gravisima:5    },
+    pequeña:  { leve:6,     grave:8,    gravisima:10   },
+    mediana:  { leve:24,    grave:32,   gravisima:40   },
+    grande:   { leve:36,    grave:48,   gravisima:60   },
+  },
+  estandar_nat2_menor: {
+    micro:    { leve:3,     grave:4,    gravisima:5    },
+    pequeña:  { leve:3,     grave:4,    gravisima:5    },
+    mediana:  { leve:6,     grave:8,    gravisima:10   },
+    grande:   { leve:9,     grave:12,   gravisima:15   },
+  },
+  estandar_nat1_base: {
+    micro:    { leve:12,    grave:16,   gravisima:20   },
+    pequeña:  { leve:30,    grave:40,   gravisima:50   },
+    mediana:  { leve:96,    grave:128,  gravisima:160  },
+    grande:   { leve:180,   grave:240,  gravisima:300  },
+  },
+  alta: {
+    micro:    { leve:30,    grave:40,   gravisima:50   },
+    pequeña:  { leve:60,    grave:80,   gravisima:100  },
+    mediana:  { leve:240,   grave:320,  gravisima:400  },
+    grande:   { leve:540,   grave:720,  gravisima:900  },
+  },
+  muy_alta: {
+    micro:    { leve:45,    grave:60,   gravisima:75   },
+    pequeña:  { leve:90,    grave:120,  gravisima:150  },
+    mediana:  { leve:360,   grave:480,  gravisima:600  },
+    grande:   { leve:810,   grave:1080, gravisima:1350 },
+  },
+  imm_rango_unico: {
+    mediana:  { leve:16.04, grave:21.38, gravisima:26.73 },
+  },
+};
+
+// ─── Core calculation ─────────────────────────────────────────────────────────
+function calcMulta(reg, opts = {}) {
+  const cs  = opts.companySize || companySize();
+  const sev = opts.severity    || severity();
+  const nat = String(reg.naturaleza || '').toLowerCase();
+
+  if (nat.includes('no aplica') || nat.includes('uf') || reg.monto_multa) {
+    return { unit: 'UF', value: reg.monto_multa || '(ver registro)' };
+  }
+
+  if (typeof reg.utm === 'string') {
+    const table = DEFAULT_TABLES[reg.utm.toLowerCase()];
+    if (table) {
+      const row = table[cs];
+      if (row) return { unit: 'UTM', value: row[sevKey(sev)] };
+    }
+  }
+
+  if (reg.utm && typeof reg.utm === 'object') {
+    const row = reg.utm[cs] || reg.utm[cs === 'pequeña' ? 'pequena' : cs];
+    if (row) return { unit: 'UTM', value: row[sevKey(sev)] || row[sev] || row['gravisima'] };
+  }
+
+  return { unit: 'UTM', value: 'N/D' };
+}
+
+function sevKey(sev) {
+  return sev === 'leve' ? 'leve' : sev === 'grave' ? 'grave' : 'gravisima';
+}
+
+function computeTotals(items, opts = {}) {
+  const totals = {};
+  items.forEach(r => {
+    const code = String(r.codigo);
+    const sev  = (opts.severityPerCode && opts.severityPerCode[code]) || opts.severity || severity();
+    const m    = calcMulta(r, { companySize: opts.companySize || companySize(), severity: sev });
+    const unit = m.unit || 'UTM';
+    let val = null;
+    if (typeof m.value === 'number') val = m.value;
+    else if (typeof m.value === 'string') {
+      const match = m.value.match(/[\d]+([\.,][\d]+)?/);
+      if (match) val = parseFloat(match[0].replace(',', '.'));
+    }
+    if (val == null || isNaN(val)) return;
+    totals[unit] = (totals[unit] || 0) + val;
+  });
+  return totals;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function companySize() { return document.getElementById('company-size').value; }
+function severity()    { return document.getElementById('severity').value; }
+function utmValue()    { return parseFloat(String(document.getElementById('utm-input').value).replace(/[^0-9.]/g,'')) || 0; }
+
+function clpLabel(utms) {
+  const utm = utmValue();
+  if (!utm || typeof utms !== 'number') return '';
+  const clp = Math.round(utms * utm);
+  return '≈ ' + clp.toLocaleString('es-CL', { style:'currency', currency:'CLP' });
+}
+
+function sevChip(sev) {
+  const map = { leve:'Leve', grave:'Grave', gravisima:'Gravísima' };
+  return `<span class="chip chip-${sev}">${map[sev] || sev}</span>`;
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Load data ────────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      initData(Array.isArray(parsed) ? parsed : Object.values(parsed));
+    } catch {
+      showLoadError('El archivo no es un JSON válido.');
+    }
+  };
+  reader.readAsText(file);
+});
+
+async function loadFromUrl() {
+  const url = document.getElementById('api-url-input').value.trim();
+  if (!url) return;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    initData(Array.isArray(json) ? json : Object.values(json));
+  } catch(err) {
+    showLoadError('No se pudo cargar: ' + err.message);
+  }
+}
+
+function showLoadError(msg) {
+  document.getElementById('load-error').innerHTML = `<div class="error-msg">${esc(msg)}</div>`;
+}
+
+function initData(data) {
+  allData = data;
+  document.getElementById('load-section').style.display = 'none';
+  document.getElementById('controls').style.display = 'flex';
+  document.getElementById('main-layout').style.display = 'grid';
+  renderResults();
+}
+
+// ─── Render results ───────────────────────────────────────────────────────────
+function renderResults() {
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  const tokens = q ? q.split(/\s+/) : [];
+  const filtered = tokens.length === 0
+    ? allData.slice(0, 200)
+    : allData.filter(r => {
+        const txt = [r.enunciado, r.tipificacion, r.norma, r.codigo].join(' ').toLowerCase();
+        return tokens.every(t => txt.includes(t));
+      });
+
+  document.getElementById('result-count').textContent = filtered.length + (tokens.length === 0 && allData.length > 200 ? ' / ' + allData.length : '');
+
+  const list = document.getElementById('results-list');
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty">Sin resultados</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(r => {
+    const code = String(r.codigo);
+    const isActive  = selected && String(selected.codigo) === code;
+    const isInActa  = !!acta[code];
+    let cls = 'result-item';
+    if (isActive) cls += ' active';
+    if (isInActa) cls += ' in-acta';
+    return `<div class="${cls}" onclick="selectRecord(${code})">
+      <span class="codigo-badge">${esc(r.codigo)}</span>
+      <div>
+        <div class="enunciado">${esc(r.enunciado || r.tipificacion || '')}</div>
+        <div class="norma">${esc(r.norma || '')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Select record ────────────────────────────────────────────────────────────
+function selectRecord(codigo) {
+  selected = allData.find(r => String(r.codigo) === String(codigo)) || null;
+  renderResults();
+  renderDetail();
+}
+
+function renderDetail() {
+  const panel = document.getElementById('detail-panel');
+  if (!selected) {
+    panel.innerHTML = '<div class="detail-empty">Seleccione un registro para ver el detalle</div>';
+    return;
+  }
+  const m    = calcMulta(selected);
+  const inActa = !!acta[String(selected.codigo)];
+  const clp  = m.unit === 'UTM' && typeof m.value === 'number' ? clpLabel(m.value) : '';
+
+  panel.innerHTML = `
+    <div class="detail-row"><span class="detail-label">Código</span><span class="detail-val"><strong>${esc(selected.codigo)}</strong></span></div>
+    <div class="detail-row"><span class="detail-label">Norma</span><span class="detail-val">${esc(selected.norma || '—')}</span></div>
+    <div class="detail-row"><span class="detail-label">Enunciado</span><span class="detail-val">${esc(selected.enunciado || '—')}</span></div>
+    <div class="detail-row"><span class="detail-label">Tipificación</span><span class="detail-val">${esc(selected.tipificacion || '—')}</span></div>
+    <div class="detail-row"><span class="detail-label">Naturaleza</span><span class="detail-val">${esc(selected.naturaleza ?? '—')}</span></div>
+
+    <div class="multa-box">
+      <div class="title">Multa calculada</div>
+      <div>
+        <span class="multa-value">${esc(m.value)}</span>
+        <span class="multa-unit">${m.unit}</span>
+      </div>
+      ${clp ? `<div class="multa-clp">${clp}</div>` : ''}
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn ${inActa ? 'btn-danger' : 'btn-primary'}" onclick="toggleActa(${selected.codigo})">
+        ${inActa ? '✕ Quitar del acta' : '+ Añadir al acta'}
+      </button>
+    </div>
+  `;
+}
+
+// ─── Acta ─────────────────────────────────────────────────────────────────────
+function toggleActa(codigo) {
+  const code = String(codigo);
+  if (acta[code]) {
+    delete acta[code];
+    delete actaSeverity[code];
+  } else {
+    const reg = allData.find(r => String(r.codigo) === code);
+    if (reg) {
+      acta[code] = reg;
+      actaSeverity[code] = severity();
+    }
+  }
+  saveActa();
+  renderResults();
+  renderDetail();
+  renderActa();
+}
+
+function removeFromActa(codigo) {
+  const code = String(codigo);
+  delete acta[code];
+  delete actaSeverity[code];
+  saveActa();
+  renderResults();
+  renderDetail();
+  renderActa();
+}
+
+function clearActa() {
+  acta = {};
+  actaSeverity = {};
+  saveActa();
+  renderResults();
+  renderDetail();
+  renderActa();
+}
+
+function setSeverityInActa(codigo, sev) {
+  actaSeverity[String(codigo)] = sev;
+  saveActa();
+  renderActa();
+}
+
+function saveActa() {
+  try {
+    localStorage.setItem('tipificador_acta', JSON.stringify({ codes: Object.keys(acta), severities: actaSeverity }));
+  } catch(e) {}
+}
+
+function loadActa() {
+  try {
+    const raw = localStorage.getItem('tipificador_acta');
+    if (!raw || !allData.length) return;
+    const parsed = JSON.parse(raw);
+    const codes = parsed.codes || [];
+    const sevs  = parsed.severities || {};
+    codes.forEach(c => {
+      const reg = allData.find(r => String(r.codigo) === c);
+      if (reg) { acta[c] = reg; actaSeverity[c] = sevs[c] || 'grave'; }
+    });
+    renderActa();
+    renderResults();
+  } catch(e) {}
+}
+
+function renderActa() {
+  const items = Object.values(acta);
+  document.getElementById('acta-count').textContent = items.length;
+  const panel = document.getElementById('acta-panel');
+
+  if (items.length === 0) {
+    panel.innerHTML = '<div class="empty">No hay registros en el acta</div>';
+    return;
+  }
+
+  const totals = computeTotals(items, { severityPerCode: actaSeverity });
+  const utmTotal = totals['UTM'] || 0;
+  const ufTotal  = totals['UF']  || 0;
+
+  const rows = items.map(r => {
+    const code = String(r.codigo);
+    const sev  = actaSeverity[code] || severity();
+    const m    = calcMulta(r, { severity: sev });
+    const val  = typeof m.value === 'number' ? `${m.value} ${m.unit}` : `${m.value} ${m.unit}`;
+    return `<div class="acta-item">
+      <div class="acta-item-left">
+        <span class="codigo-badge">${esc(r.codigo)}</span>
+        <span class="acta-item-text" title="${esc(r.enunciado)}">${esc(r.enunciado || r.tipificacion || '')}</span>
+      </div>
+      <select onchange="setSeverityInActa(${code}, this.value)">
+        <option value="leve"      ${sev==='leve'      ?'selected':''}>Leve</option>
+        <option value="grave"     ${sev==='grave'     ?'selected':''}>Grave</option>
+        <option value="gravisima" ${sev==='gravisima' ?'selected':''}>Gravísima</option>
+      </select>
+      <span class="multa-small">${esc(val)}</span>
+      <button class="rm-btn" onclick="removeFromActa(${code})" title="Quitar">×</button>
+    </div>`;
+  }).join('');
+
+  const utmClp = utmTotal ? clpLabel(utmTotal) : '';
+
+  panel.innerHTML = `
+    ${rows}
+    <div class="totals-box" style="margin-top:12px;">
+      <div class="label">Total estimado</div>
+      ${utmTotal ? `<div class="amount">${utmTotal.toLocaleString('es-CL')} UTM</div><div class="clp">${utmClp}</div>` : ''}
+      ${ufTotal  ? `<div class="amount" style="margin-top:4px;">${ufTotal.toLocaleString('es-CL')} UF</div>` : ''}
+    </div>
+    <div class="actions-bar">
+      <button class="btn btn-primary" onclick="downloadActa()">⬇ Descargar acta (.json)</button>
+      <button class="btn btn-primary" onclick="copyActa()">⎘ Copiar texto</button>
+      <button class="btn btn-danger"  onclick="clearActa()">✕ Limpiar acta</button>
+    </div>
+  `;
+}
+
+// ─── Download / copy ──────────────────────────────────────────────────────────
+function downloadActa() {
+  const items   = Object.values(acta);
+  const totals  = computeTotals(items, { severityPerCode: actaSeverity });
+  const payload = {
+    generado: new Date().toISOString(),
+    tamaño_empresa: companySize(),
+    utm_value: utmValue(),
+    items: items.map(r => ({
+      codigo: r.codigo,
+      norma: r.norma,
+      enunciado: r.enunciado,
+      tipificacion: r.tipificacion,
+      gravedad: actaSeverity[String(r.codigo)] || severity(),
+      multa: calcMulta(r, { severity: actaSeverity[String(r.codigo)] || severity() }),
+    })),
+    totales: totals,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'acta_multas.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function copyActa() {
+  const items = Object.values(acta);
+  if (!items.length) return;
+  const lines = items.map(r => {
+    const sev = actaSeverity[String(r.codigo)] || severity();
+    const m   = calcMulta(r, { severity: sev });
+    return `[${r.codigo}] ${r.enunciado || ''}\n  Norma: ${r.norma || '—'}\n  Multa: ${m.value} ${m.unit} (${sev})`;
+  });
+  const totals  = computeTotals(items, { severityPerCode: actaSeverity });
+  const utmTot  = totals['UTM'] || 0;
+  const utmClp  = utmTot ? ` (${clpLabel(utmTot)})` : '';
+  lines.push(`\nTOTAL UTM: ${utmTot}${utmClp}`);
+  navigator.clipboard.writeText(lines.join('\n\n')).catch(() => alert(lines.join('\n\n')));
+}
+
+// ─── Refresh on controls change ───────────────────────────────────────────────
+function refresh() {
+  renderDetail();
+  renderActa();
+}
+
+// ─── Auto-load tipificador.json from same folder (if served via HTTP) ─────────
+(async () => {
+  try {
+    const res = await fetch('./tipificador.json');
+    if (!res.ok) return;
+    const json = await res.json();
+    initData(Array.isArray(json) ? json : Object.values(json));
+    loadActa();
+  } catch(e) {
+    // silently skip — user will load manually
+  }
+})();
+</script>
+</body>
+</html>
