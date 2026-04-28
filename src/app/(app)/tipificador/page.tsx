@@ -151,7 +151,7 @@ export default function TipificadorPage() {
 
   return (
     <ModuleLayout
-      title="Tipificador DT"
+      title="Formulario Único de Fiscalización FUF"
       description="Calculadora de multas según Código del Trabajo"
       backHref={ROUTES.DASHBOARD}
     >
